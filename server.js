@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const Mustache  = require('mustache');
 const Request  = require('request');
 const Querystring  = require('querystring');
+const crypto = require("crypto");
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -45,6 +46,7 @@ app.post('/sendcode', function(request, response){
   // CSRF check
   if (request.body.csrf_nonce === csrf_guid) {
     var app_access_token = ['AA', app_id, app_secret].join('|');
+    console.log(request.body.code);
     var params = {
       grant_type: 'authorization_code',
       code: request.body.code,
@@ -60,8 +62,14 @@ app.post('/sendcode', function(request, response){
         user_id: respBody.id,
       };
 
+
+      let hash = crypto.createHmac('sha256', app_secret).update(respBody.access_token);
+
+      // to lowercase hexits
+      const appSecretProof = hash.digest('hex');
+
       // get account details at /me endpoint
-      var me_endpoint_url = me_endpoint_base_url + '?access_token=' + respBody.access_token;
+      var me_endpoint_url = me_endpoint_base_url + '?access_token=' + respBody.access_token + '&appsecret_proof=' + appSecretProof;
       Request.get({url: me_endpoint_url, json:true }, function(err, resp, respBody) {
         // send login_success.html
         if (respBody.phone) {
